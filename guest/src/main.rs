@@ -6,6 +6,8 @@ compile_error!("BoxLite guest is Linux-only; build with a Linux target");
 #[cfg(target_os = "linux")]
 mod container;
 #[cfg(target_os = "linux")]
+mod mounts;
+#[cfg(target_os = "linux")]
 mod network;
 #[cfg(target_os = "linux")]
 mod overlayfs;
@@ -72,6 +74,10 @@ async fn main() -> BoxliteResult<()> {
     }
 
     info!("🚀 BoxLite Guest Agent starting");
+
+    // Mount essential tmpfs directories early
+    // Needed because virtio-fs doesn't support open-unlink-fstat pattern
+    mounts::mount_essential_tmpfs()?;
 
     // Parse command-line arguments with clap
     let args = GuestArgs::parse();
