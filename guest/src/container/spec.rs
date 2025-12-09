@@ -347,5 +347,24 @@ fn build_standard_mounts(bundle_path: &Path) -> BoxliteResult<Vec<Mount>> {
             })?,
     );
 
+    // Add /etc/resolv.conf bind mount
+    let resolv_conf_path = bundle_path.join("resolv.conf");
+    mounts.push(
+        MountBuilder::default()
+            .destination("/etc/resolv.conf")
+            .typ("bind")
+            .source(resolv_conf_path.to_str().ok_or_else(|| {
+                BoxliteError::Internal(format!(
+                    "Invalid resolv.conf path: {}",
+                    resolv_conf_path.display()
+                ))
+            })?)
+            .options(vec!["bind".to_string(), "ro".to_string()])
+            .build()
+            .map_err(|e| {
+                BoxliteError::Internal(format!("Failed to build /etc/resolv.conf mount: {}", e))
+            })?,
+    );
+
     Ok(mounts)
 }
