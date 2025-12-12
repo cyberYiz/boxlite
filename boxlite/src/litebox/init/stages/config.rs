@@ -13,7 +13,7 @@ use crate::vmm::{DiskConfig, DiskFormat, Disks, Entrypoint, InstanceSpec, Mounts
 use crate::volumes::DiskManager;
 use boxlite_shared::Transport;
 use boxlite_shared::errors::BoxliteResult;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 /// Build box configuration.
 ///
@@ -139,26 +139,34 @@ fn setup_networking(
 ) -> BoxliteResult<Option<Box<dyn crate::net::NetworkBackend>>> {
     let mut port_map: HashMap<u16, u16> = HashMap::new();
 
-    // Exposed ports from image
+    // Step 1: Collect guest ports that user wants to customize
+    // User-provided mappings should override image defaults for the same guest port
+    let user_guest_ports: HashSet<u16> = options.ports.iter().map(|p| p.guest_port).collect();
+
+    // Step 2: Image exposed ports (only add default 1:1 mapping if user didn't override)
     for port in container_config.tcp_ports() {
-        port_map.insert(port, port);
+        if !user_guest_ports.contains(&port) {
+            port_map.insert(port, port);
+        }
     }
 
-    // User-provided mappings
+    // Step 3: User-provided mappings (always applied)
     for port in &options.ports {
-        if let Some(host_port) = port.host_port {
-            port_map.insert(host_port, port.guest_port);
-        }
+        let host_port = port.host_port.unwrap_or(port.guest_port);
+        port_map.insert(host_port, port.guest_port);
     }
 
     let final_mappings: Vec<(u16, u16)> = port_map.into_iter().collect();
 
     if !final_mappings.is_empty() {
         tracing::info!(
-            "Port mappings: {} (image: {}, user: {})",
+            "Port mappings: {} (image: {}, user: {}, overridden: {})",
             final_mappings.len(),
             container_config.exposed_ports.len(),
-            options.ports.len()
+            options.ports.len(),
+            user_guest_ports
+                .intersection(&container_config.tcp_ports().into_iter().collect())
+                .count()
         );
     }
 
