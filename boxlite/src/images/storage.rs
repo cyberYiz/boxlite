@@ -26,7 +26,7 @@ use boxlite_shared::errors::{BoxliteError, BoxliteResult};
 ///
 /// Provides low-level operations for storing and loading images artifacts
 /// (manifests, layers, configs) with digest-based naming and integrity
-/// verification.
+/// verification.123
 pub struct ImageStorage {
     layout: ImageFilesystemLayout,
 }
